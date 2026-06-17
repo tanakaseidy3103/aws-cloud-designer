@@ -2,7 +2,7 @@
 
 A production-ready web application to design, validate, cost-estimate, and export AWS cloud architectures. Built with **Next.js**, **TypeScript**, **React Flow**, and **AWS SDK v3**.
 
-![Platform Screenshot](public/screenshot.png)
+![Platform Screenshot](public/aws.png)
 
 👉 **Live Demo:** *[Paste your Vercel deploy link here]*
 
