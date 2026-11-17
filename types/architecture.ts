@@ -1,5 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
-import type { AwsNodeData } from "./aws";
+import type { AwsNodeData, NetworkSettings } from "./aws";
 
 export interface SavedArchitecture {
   id: string;
@@ -7,6 +7,8 @@ export interface SavedArchitecture {
   description?: string;
   nodes: Node<AwsNodeData>[];
   edges: Edge[];
+  /** Architecture-wide network settings. Absent in designs saved before v2. */
+  network?: Partial<NetworkSettings>;
   createdAt: string;
   updatedAt: string;
   version: number;

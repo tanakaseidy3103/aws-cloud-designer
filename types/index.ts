@@ -1,4 +1,26 @@
-export type { AwsComponentType, AwsComponentDefinition, AwsNodeData, ComponentPaletteItem } from "./aws";
+export type {
+  AwsComponentType,
+  AwsComponentDefinition,
+  AwsNodeData,
+  ComponentPaletteItem,
+  SubnetTier,
+  IngressProtocol,
+  IngressRule,
+  Ec2Config,
+  RdsEngine,
+  RdsConfig,
+  S3Encryption,
+  S3Config,
+  LambdaRuntime,
+  LambdaConfig,
+  LoadBalancerConfig,
+  ViewerProtocolPolicy,
+  CloudFrontPriceClass,
+  CloudFrontConfig,
+  ResourceConfigByType,
+  AnyResourceConfig,
+  NetworkSettings,
+} from "./aws";
 export type {
   SavedArchitecture,
   ArchitectureMetadata,
