@@ -51,7 +51,7 @@ interface ExecResult {
 }
 
 function sanitizedEnv(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {};
+  const env: Record<string, string | undefined> = {};
   for (const [k, v] of Object.entries(process.env)) {
     if (k.toUpperCase().startsWith("AWS_")) continue;
     env[k] = v;
@@ -59,7 +59,7 @@ function sanitizedEnv(): NodeJS.ProcessEnv {
   env.TF_IN_AUTOMATION = "1";
   env.TF_INPUT = "0";
   env.CHECKPOINT_DISABLE = "1";
-  return env;
+  return env as NodeJS.ProcessEnv;
 }
 
 function run(bin: string, args: string[], cwd: string, timeoutMs: number): Promise<ExecResult> {

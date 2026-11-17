@@ -10,9 +10,9 @@ const fixtures: Record<string, InfraModel> = {
   "s3-only": model([node("bucket", "s3")]),
 };
 
-describe.concurrent.skipIf(!terraform)("generated Terraform passes fmt and validate", () => {
+describe.skipIf(!terraform)("generated Terraform passes fmt and validate", () => {
   for (const [name, m] of Object.entries(fixtures)) {
-    it(name, async () => {
+    it.concurrent(name, async () => {
       const { files } = generateTerraformFromModel(m);
       const tfFiles = Object.fromEntries(Object.entries(files).filter(([f]) => f.endsWith(".tf")));
       const result = await check(tfFiles);
