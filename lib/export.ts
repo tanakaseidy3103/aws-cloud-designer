@@ -137,7 +137,7 @@ export async function exportCanvasToPdf(
   // Cost breakdown
   pdf.setTextColor(13, 17, 23);
   pdf.setFontSize(11);
-  pdf.text("Resources Billing Breakdown (Real-time Model)", 15, 192);
+  pdf.text("Rough Cost Indicator (flat per-resource placeholder, not AWS pricing)", 15, 192);
 
   // Draw simple table headers
   let yPos = 199;
@@ -199,7 +199,7 @@ export async function exportCanvasToPdf(
     pdf.text(`Identified Architecture Issues (${health.warnings.length})`, 15, listY);
     listY += 6;
 
-    health.warnings.forEach((warn, idx) => {
+    health.warnings.forEach((warn) => {
       if (listY > pageHeight - 35) {
         pdf.addPage();
         listY = 20;
@@ -211,13 +211,13 @@ export async function exportCanvasToPdf(
       pdf.setTextColor(153, 27, 27);
       pdf.setFontSize(8.5);
       pdf.setFont("helvetica", "bold");
-      pdf.text(`[${warn.type.toUpperCase()}] ${warn.message}`, 20, listY + 5.5);
+      pdf.text(`[${warn.type.toUpperCase()} ${warn.code}] ${warn.message}`, 20, listY + 5.5);
 
       pdf.setFont("helvetica", "normal");
       pdf.setTextColor(71, 85, 105);
       pdf.text(`Compliance Rule: ${warn.rule}`, 20, listY + 11);
 
-      const matchRec = health.recommendations[idx];
+      const matchRec = health.recommendations.find((r) => r.id === `${warn.id}:fix`);
       if (matchRec) {
         pdf.setTextColor(30, 41, 59);
         pdf.text(`Remediation: ${matchRec.message} -> ${matchRec.action}`, 20, listY + 16.5);
