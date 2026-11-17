@@ -192,7 +192,8 @@ export async function runTerraformChecks(files: Record<string, string>, opts: Ru
       });
     }
   } finally {
-    if (!opts.keepWorkDir) await rm(dir, { recursive: true, force: true });
+    // Windows keeps the provider executable locked briefly after validate exits.
+    if (!opts.keepWorkDir) await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 }).catch(() => undefined);
   }
 
   // fmt problems are reported but do not make the configuration invalid.

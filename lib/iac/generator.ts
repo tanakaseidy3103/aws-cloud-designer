@@ -16,6 +16,9 @@ import { analyzeSecurity, type SecurityReport } from "@/lib/security";
 import { createContext, type SectionFile } from "./context";
 import { renderFile, type BodyItem } from "./hcl";
 import { generateNetwork } from "./network";
+import { generateSecurityGroups } from "./security-groups";
+import { generateCompute } from "./compute";
+import { generateDatabases, generateStorage } from "./data-stores";
 import { mainFile, outputsFile, providersFile, tfvarsExample, variablesFile } from "./root";
 
 export interface GeneratedTerraform {
@@ -33,7 +36,13 @@ export interface GeneratedTerraform {
 type Section = (ctx: ReturnType<typeof createContext>) => SectionFile | SectionFile[] | null;
 
 /** Order matters only for readability of each file; HCL is declarative. */
-export const SECTIONS: Section[] = [generateNetwork];
+export const SECTIONS: Section[] = [
+  generateNetwork,
+  generateSecurityGroups,
+  generateCompute,
+  generateDatabases,
+  generateStorage,
+];
 
 const HEADER = (model: InfraModel) =>
   [
@@ -62,6 +71,8 @@ export function generateTerraformFromModel(model: InfraModel): GeneratedTerrafor
   files["outputs.tf"] = renderFile(outputsFile(ctx));
   files["terraform.tfvars.example"] = tfvarsExample(ctx);
 
+  assertUniqueAddresses(files);
+
   return {
     files,
     diagnostics: validation.warnings,
@@ -69,4 +80,22 @@ export function generateTerraformFromModel(model: InfraModel): GeneratedTerrafor
     skipped: ctx.skipped,
     ready: validation.isValid,
   };
+}
+
+/**
+ * Defensive check: two blocks with the same address make the whole
+ * configuration invalid. Fail loudly instead of emitting broken HCL.
+ */
+export function assertUniqueAddresses(files: Record<string, string>): void {
+  const seen = new Map<string, string>();
+  const re = /^(resource|data) "([^"]+)" "([^"]+)"|^(output|variable) "([^"]+)"/gm;
+  for (const [file, content] of Object.entries(files)) {
+    if (!file.endsWith(".tf")) continue;
+    for (const m of content.matchAll(re)) {
+      const address = m[1] ? `${m[1]}.${m[2]}.${m[3]}` : `${m[4]}.${m[5]}`;
+      const prev = seen.get(address);
+      if (prev) throw new Error(`Duplicate Terraform address ${address} in ${prev} and ${file}`);
+      seen.set(address, file);
+    }
+  }
 }

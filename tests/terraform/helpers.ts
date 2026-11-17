@@ -20,3 +20,10 @@ export async function check(files: Record<string, string>): Promise<PipelineResu
   if (!terraform) throw new Error("terraform not available");
   return runTerraformChecks(files, { bin: terraform.bin, version: terraform.version });
 }
+
+/**
+ * On Windows terraform copies the (large) provider binary out of the plugin
+ * cache for every init; parallel copies race and get blocked by Application
+ * Control. Linux symlinks from the cache, so concurrency is safe there.
+ */
+export const parallelSafe = process.platform !== "win32";
