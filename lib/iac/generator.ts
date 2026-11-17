@@ -19,6 +19,8 @@ import { generateNetwork } from "./network";
 import { generateSecurityGroups } from "./security-groups";
 import { generateCompute } from "./compute";
 import { generateDatabases, generateStorage } from "./data-stores";
+import { generateLambdas } from "./serverless";
+import { generateDistributions, generateLoadBalancers } from "./edge";
 import { mainFile, outputsFile, providersFile, tfvarsExample, variablesFile } from "./root";
 
 export interface GeneratedTerraform {
@@ -42,6 +44,9 @@ export const SECTIONS: Section[] = [
   generateCompute,
   generateDatabases,
   generateStorage,
+  generateLambdas,
+  generateLoadBalancers,
+  generateDistributions,
 ];
 
 const HEADER = (model: InfraModel) =>

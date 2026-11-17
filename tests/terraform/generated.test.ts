@@ -43,6 +43,37 @@ export const GENERATOR_FIXTURES: Record<string, InfraModel> = {
     }),
     node("open", "s3", { label: "Open bucket", config: { blockPublicAccess: false, encryption: "none", versioning: false } }),
   ]),
+  "serverless-api": model(
+    [
+      node("cf", "cloudfront", { label: "API CDN" }),
+      node("alb", "load-balancer", { label: "API ALB" }),
+      node("fn", "lambda", { label: "Orders API" }),
+      node("db", "rds", { label: "Orders DB" }),
+      node("assets", "s3", { label: "Assets" }),
+    ],
+    [edge("cf", "alb"), edge("alb", "fn"), edge("fn", "db"), edge("fn", "assets")]
+  ),
+  "https-3-tier": model(
+    [
+      node("cf", "cloudfront", { label: "Web CDN" }),
+      node("alb", "load-balancer", { label: "Web ALB", config: { httpsEnabled: true } }),
+      node("a", "ec2", { label: "App A", config: { appPort: 8080 } }),
+      node("b", "ec2", { label: "App B", config: { appPort: 8080 } }),
+      node("db", "rds", { label: "DB", config: { multiAz: true, deletionProtection: true } }),
+    ],
+    [edge("cf", "alb"), edge("alb", "a"), edge("alb", "b"), edge("a", "db"), edge("b", "db")]
+  ),
+  "static-site": model([node("cf", "cloudfront", { label: "Site" }), node("site", "s3", { label: "Site bucket" })], [edge("site", "cf")]),
+  "edge-cases": model(
+    [
+      node("orphan-cf", "cloudfront", { label: "No origin" }),
+      node("int", "load-balancer", { label: "Internal ALB", config: { internal: true } }),
+      node("w", "ec2", { label: "Worker" }),
+      node("mixed", "lambda", { label: "Py job", config: { runtime: "python3.12", extraPermissions: ["dynamodb:GetItem", "s3:*"] } }),
+      node("pub", "load-balancer", { label: "Public ALB" }),
+    ],
+    [edge("int", "w"), edge("int", "mixed")]
+  ),
 };
 
 describe.skipIf(!terraform)("generated Terraform passes fmt and validate", () => {
