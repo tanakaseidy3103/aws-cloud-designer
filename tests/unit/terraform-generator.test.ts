@@ -4,7 +4,7 @@ import { toProjectName } from "@/lib/iac/root";
 import { isArmInstanceType } from "@/lib/iac/compute";
 import { sgDescription } from "@/lib/iac/security-groups";
 import { edge, model, node } from "../fixtures/builders";
-import { GENERATOR_FIXTURES } from "../terraform/generated.test";
+import { GENERATOR_FIXTURES } from "../fixtures/generator-fixtures";
 
 const all = (files: Record<string, string>) => Object.values(files).join("\n");
 

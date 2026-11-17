@@ -1,5 +1,7 @@
 import type { Edge, Node } from "@xyflow/react";
 import type { AwsNodeData, NetworkSettings } from "./aws";
+import type { ValidationWarning } from "@/lib/validation";
+import type { SecurityReport } from "@/lib/security/types";
 
 export interface SavedArchitecture {
   id: string;
@@ -58,10 +60,16 @@ export interface CollaborationSession {
   lastSyncedAt: string;
 }
 
-/** Future-ready: Terraform generation output */
+/** Terraform generation output shown in the Terraform viewer. */
 export interface TerraformOutput {
   architectureId: string;
   provider: "aws";
   files: Record<string, string>;
   generatedAt: string;
+  /** Architecture validation results at generation time. */
+  diagnostics: ValidationWarning[];
+  security: SecurityReport;
+  skipped: { resourceId: string; reason: string }[];
+  /** False when validation reported errors. */
+  ready: boolean;
 }

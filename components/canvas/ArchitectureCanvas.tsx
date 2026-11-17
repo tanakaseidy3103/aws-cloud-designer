@@ -326,14 +326,16 @@ function ArchitectureCanvasInner() {
   // Terraform Code Generator
   const handleGenerateTerraform = useCallback(() => {
     try {
-      const output = generateTerraform(architectureId || "project-cloud-design", nodes, edges);
+      const output = generateTerraform(architectureId || "project-cloud-design", nodes, edges, {
+        name: architectureName,
+      });
       setGeneratedTf(output);
       setTfModalOpen(true);
     } catch (err) {
       console.error("Terraform generation error: ", err);
       alert("Failed to generate HCL configurations.");
     }
-  }, [architectureId, nodes, edges]);
+  }, [architectureId, architectureName, nodes, edges]);
 
   // S3 Cloud Upload Trigger Handler
   const handleShareCloud = useCallback(async () => {
