@@ -24,6 +24,10 @@ export default defineConfig({
           name: "terraform",
           environment: "node",
           include: ["tests/terraform/**/*.test.ts"],
+          // terraform init installs providers into each temp workspace; separate
+          // worker processes doing that at the same time race on the shared
+          // plugin cache (observed on Windows). Run files one at a time.
+          fileParallelism: false,
           testTimeout: 300_000,
           hookTimeout: 300_000,
         },
