@@ -87,3 +87,12 @@ describe("validateModel", () => {
     expect(validateModel(model([])).healthScore).toBe(100);
   });
 });
+
+describe("operational notes", () => {
+  it("explains that a VPC Lambda without NAT cannot reach Secrets Manager (ARCH-036)", () => {
+    const m = model([node("f", "lambda"), node("db", "rds")], [edge("f", "db")]);
+    expect(codes(m)).toContain("ARCH-036");
+    const withNat = model([node("f", "lambda"), node("db", "rds")], [edge("f", "db")], { enableNatGateway: true });
+    expect(codes(withNat)).not.toContain("ARCH-036");
+  });
+});

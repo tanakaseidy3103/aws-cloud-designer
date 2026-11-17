@@ -192,6 +192,11 @@ export function validateModel(model: InfraModel): ValidationResult {
     }
 
     if (r.type === "lambda") {
+      if (targetsOf(model, r.id, "db-client").length > 0 && !net.enableNatGateway) {
+        add("ARCH-036", "info", r.id, `"${r.label}" runs in the VPC (it connects to a database) without a NAT Gateway.`,
+          "It can reach the database and S3 (gateway endpoint), but not other AWS APIs such as Secrets Manager, where the database credentials are stored.",
+          [r.id], { message: `Give "${r.label}" a path to Secrets Manager.`, action: "Enable the NAT Gateway in Network settings, or add a Secrets Manager interface endpoint (both are billed hourly)." });
+      }
       const bad = r.config.extraPermissions.filter((a) => !isValidIamAction(a));
       if (bad.length) {
         add("ARCH-030", "error", r.id, `"${r.label}" has invalid IAM actions: ${bad.join(", ")}.`,
