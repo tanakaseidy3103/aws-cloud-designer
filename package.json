@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1070.0",
+    "@aws-sdk/s3-request-presigner": "^3.1070.0",
     "@xyflow/react": "^12.6.0",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",

@@ -52,7 +52,7 @@ React Flow state (nodes/edges, in component memory)
 | EC2 → RDS port 5432 SG rule | ⚠️ | Emitted once **per edge** for the same SG pair → duplicate names and, if names were unique, a duplicate-rule error from the EC2 API. |
 | "AWS Well-Architected health validation engine" | ⚠️ Overstated | 4 connectivity rules (RDS↔EC2, ALB↔EC2, CloudFront↔origin, isolated nodes). No security, reliability or network checks. |
 | "Real-time cost estimator" / "Real-time Model" (PDF) | ⚠️ Overstated | Fixed constants per resource type; ignores instance type, region, storage, NAT, data transfer. The panel correctly says "mock indicators"; the PDF heading does not. |
-| "S3 Cloud Share … secure backend upload … public asset URL" | ⚠️ | Works only if the bucket is public (contradicts security best practice). No auth, no size limit. Details in `SECURITY_REVIEW.md`. |
+| "S3 Cloud Share … secure backend upload … public asset URL" | ⚠️ | Works only if the bucket is public (contradicts security best practice). No auth, no size limit. Fixed later: see [security review](security/security-review.md) SR-02/SR-03. |
 | Templates "3-Tier", "Serverless", "Static", "Microservices" | ✅ | Load correctly on the canvas. |
 | Save / load / JSON import/export | ✅ | Works; JSON import has no schema validation. |
 | PNG / PDF export | ✅ | Works. |
