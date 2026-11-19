@@ -1,79 +1,64 @@
 import { NextResponse } from "next/server";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
+import { MAX_BODY_BYTES, readShareConfig, validateUpload } from "@/lib/share/upload";
 
+/**
+ * Uploads a PNG snapshot of the diagram to the operator's S3 bucket and returns a
+ * short-lived presigned GET URL, so the bucket can stay private.
+ *
+ * There is no user authentication in this app: do not expose this route on the
+ * public internet with production credentials. Each upload is a billable S3 PUT.
+ */
 export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { image, filename } = body;
-
-    if (!image) {
-      return NextResponse.json(
-        { error: "Missing required parameter: image" },
-        { status: 400 }
-      );
-    }
-
-    // Check environment configuration
-    const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-    const region = process.env.AWS_REGION || "ap-northeast-1";
-    const bucketName = process.env.AWS_S3_BUCKET_NAME;
-
-    if (!accessKeyId || !secretAccessKey || !bucketName) {
-      return NextResponse.json(
-        {
-          error: "AWS S3 S3 integration is not fully configured on the server. Please define AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_S3_BUCKET_NAME.",
-        },
-        { status: 501 }
-      );
-    }
-
-    // Initialize S3 client
-    const s3Client = new S3Client({
-      region,
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-      },
-    });
-
-    // Clean data URL format (e.g., data:image/png;base64,iVBORw0K...)
-    const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
-    const imageBuffer = Buffer.from(base64Data, "base64");
-
-    // Construct S3 asset key path
-    const fileExtension = "png";
-    const cleanFilename = (filename || "architecture")
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "-")
-      .replace(/-+/g, "-");
-    const key = `diagrams/${uuidv4().slice(0, 8)}-${cleanFilename}.${fileExtension}`;
-
-    // Put Object command
-    const uploadCommand = new PutObjectCommand({
-      Bucket: bucketName,
-      Key: key,
-      Body: imageBuffer,
-      ContentType: `image/${fileExtension}`,
-    });
-
-    await s3Client.send(uploadCommand);
-
-    // Build the public object URL
-    const s3Url = `https://${bucketName}.s3.${region}.amazonaws.com/${key}`;
-
-    return NextResponse.json({
-      success: true,
-      url: s3Url,
-      key,
-    });
-  } catch (error: unknown) {
-    console.error("S3 Upload error: ", error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
+  const config = readShareConfig(process.env);
+  if (!config) {
     return NextResponse.json(
-      { error: "Failed to upload diagram to cloud storage.", details: errorMessage },
-      { status: 500 }
+      { error: "Cloud share is not configured on this server. Set AWS_S3_BUCKET_NAME to enable it." },
+      { status: 501 }
     );
+  }
+
+  const declared = Number(request.headers.get("content-length") ?? "0");
+  if (declared > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "Request body is too large." }, { status: 413 });
+  }
+
+  let text: string;
+  try {
+    text = await request.text();
+  } catch {
+    return NextResponse.json({ error: "Could not read request body." }, { status: 400 });
+  }
+  if (Buffer.byteLength(text) > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "Request body is too large." }, { status: 413 });
+  }
+
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
+  }
+
+  const upload = validateUpload(body);
+  if (!upload.ok) return NextResponse.json({ error: upload.error }, { status: upload.status });
+
+  const key = `diagrams/${uuidv4().slice(0, 8)}-${upload.filename}.png`;
+  try {
+    // Without static keys the SDK uses the default credential chain (SSO, profile, role).
+    const s3 = new S3Client({ region: config.region, credentials: config.credentials });
+    await s3.send(
+      new PutObjectCommand({ Bucket: config.bucket, Key: key, Body: upload.image, ContentType: "image/png" })
+    );
+    const url = await getSignedUrl(s3, new GetObjectCommand({ Bucket: config.bucket, Key: key }), {
+      expiresIn: config.urlTtlSeconds,
+    });
+    return NextResponse.json({ success: true, url, key, expiresIn: config.urlTtlSeconds });
+  } catch (error: unknown) {
+    // Internal AWS error details stay in the server log.
+    console.error("S3 upload error:", error);
+    return NextResponse.json({ error: "Failed to upload diagram to cloud storage." }, { status: 502 });
   }
 }
