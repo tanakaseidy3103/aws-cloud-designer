@@ -35,6 +35,7 @@ import { getComponentDefinition } from "@/lib/aws-components";
 import { createNodeFromComponent, isAwsComponentType } from "@/lib/utils";
 import { ARCHITECTURE_TEMPLATES } from "@/lib/templates";
 import { generateTerraform } from "@/lib/terraform";
+import { parseArchitectureDocument } from "@/lib/infra/schema";
 
 function ArchitectureCanvasInner() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -290,23 +291,24 @@ function ArchitectureCanvasInner() {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const data = JSON.parse(e.target?.result as string);
-        if (!data.nodes || !data.edges) {
-          throw new Error("Invalid structure metadata.");
+        const parsed = parseArchitectureDocument(JSON.parse(e.target?.result as string));
+        if (!parsed.ok) {
+          alert(`Import rejected: ${parsed.error}`);
+          return;
         }
+        const doc = parsed.value;
 
-        // Apply arrow markers to imported connections
-        const updatedEdges = (data.edges as Edge[]).map((edge) => ({
+        const importedEdges: Edge[] = doc.edges.map((edge) => ({
           ...edge,
-          markerEnd: edge.markerEnd || {
-            type: MarkerType.ArrowClosed,
-            color: "#ff9900",
-          },
+          type: "smoothstep",
+          animated: true,
+          style: { stroke: "#ff9900", strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: "#ff9900" },
         }));
 
-        setNodes(data.nodes);
-        setEdges(updatedEdges);
-        setArchitectureName(data.name || "Imported Project");
+        setNodes(doc.nodes as Node<AwsNodeData>[]);
+        setEdges(importedEdges);
+        setArchitectureName(doc.name);
         setArchitectureId(null);
         setSelectedNodeId(null);
         setHasUnsavedChanges(true);
@@ -326,14 +328,16 @@ function ArchitectureCanvasInner() {
   // Terraform Code Generator
   const handleGenerateTerraform = useCallback(() => {
     try {
-      const output = generateTerraform(architectureId || "project-cloud-design", nodes, edges);
+      const output = generateTerraform(architectureId || "project-cloud-design", nodes, edges, {
+        name: architectureName,
+      });
       setGeneratedTf(output);
       setTfModalOpen(true);
     } catch (err) {
       console.error("Terraform generation error: ", err);
       alert("Failed to generate HCL configurations.");
     }
-  }, [architectureId, nodes, edges]);
+  }, [architectureId, architectureName, nodes, edges]);
 
   // S3 Cloud Upload Trigger Handler
   const handleShareCloud = useCallback(async () => {

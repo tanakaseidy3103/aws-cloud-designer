@@ -1,5 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
-import type { AwsNodeData } from "@/types";
+import type { AwsComponentType, AwsNodeData } from "@/types";
 import { getNodeTypeForComponent } from "./aws-components";
 import { DEFAULT_REGION } from "./constants";
 
@@ -7,14 +7,15 @@ export interface ArchitectureTemplate {
   id: string;
   name: string;
   description: string;
+  /** Marks intentionally insecure designs used by the demo scenarios. */
+  scenario?: string;
   nodes: Node<AwsNodeData>[];
   edges: Edge[];
 }
 
-// Helper to construct a node configuration
-function createTemplateNode(
+function n(
   id: string,
-  type: "ec2" | "s3" | "rds" | "lambda" | "load-balancer" | "cloudfront",
+  type: AwsComponentType,
   label: string,
   x: number,
   y: number,
@@ -34,177 +35,94 @@ function createTemplateNode(
   };
 }
 
+function e(source: string, target: string): Edge {
+  return {
+    id: `e-${source}--${target}`,
+    source,
+    target,
+    type: "smoothstep",
+    animated: true,
+    style: { stroke: "#ff9900", strokeWidth: 2 },
+  };
+}
+
+/**
+ * Every template must validate without errors and generate Terraform that
+ * passes `terraform validate` (enforced by tests). Instance sizes are the
+ * smallest that make sense, to keep accidental deployments cheap.
+ */
 export const ARCHITECTURE_TEMPLATES: ArchitectureTemplate[] = [
   {
     id: "3-tier-web-app",
     name: "3-Tier Web App",
-    description: "Standard web application setup using CloudFront, Application Load Balancer, EC2 servers, and RDS Database.",
+    description: "CloudFront → internet-facing ALB → two private EC2 instances → PostgreSQL RDS. The ALB only accepts traffic from CloudFront.",
     nodes: [
-      createTemplateNode("cf-1", "cloudfront", "CloudFront CDN", 50, 200),
-      createTemplateNode("alb-1", "load-balancer", "Application Load Balancer", 280, 200),
-      createTemplateNode("ec2-web-1", "ec2", "Web Server 1", 520, 100, { instanceType: "t3.medium" }),
-      createTemplateNode("ec2-web-2", "ec2", "Web Server 2", 520, 300, { instanceType: "t3.medium" }),
-      createTemplateNode("rds-db", "rds", "Postgres RDS Cluster", 780, 200, { instanceType: "db.m6g.large" }),
+      n("cf-1", "cloudfront", "CloudFront CDN", 50, 200),
+      n("alb-1", "load-balancer", "Application Load Balancer", 280, 200),
+      n("ec2-web-1", "ec2", "Web Server 1", 520, 100, { instanceType: "t3.micro" }),
+      n("ec2-web-2", "ec2", "Web Server 2", 520, 300, { instanceType: "t3.micro" }),
+      n("rds-db", "rds", "Postgres RDS", 780, 200, { instanceType: "db.t4g.micro" }),
     ],
-    edges: [
-      {
-        id: "e-cf-alb",
-        source: "cf-1",
-        target: "alb-1",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
-      {
-        id: "e-alb-ec2-1",
-        source: "alb-1",
-        target: "ec2-web-1",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
-      {
-        id: "e-alb-ec2-2",
-        source: "alb-1",
-        target: "ec2-web-2",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
-      {
-        id: "e-ec2-1-rds",
-        source: "ec2-web-1",
-        target: "rds-db",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
-      {
-        id: "e-ec2-2-rds",
-        source: "ec2-web-2",
-        target: "rds-db",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
-    ],
+    edges: [e("cf-1", "alb-1"), e("alb-1", "ec2-web-1"), e("alb-1", "ec2-web-2"), e("ec2-web-1", "rds-db"), e("ec2-web-2", "rds-db")],
   },
   {
     id: "serverless",
-    name: "Serverless Application",
-    description: "Highly scalable serverless stack: CloudFront static frontend in S3 and Lambda API back-end speaking to RDS database.",
+    name: "Serverless API",
+    description: "Static frontend in S3 behind CloudFront, and a Lambda API behind an ALB that reads/writes an RDS database and an uploads bucket.",
     nodes: [
-      createTemplateNode("cf-1", "cloudfront", "CloudFront distribution", 50, 200),
-      createTemplateNode("s3-frontend", "s3", "Web App S3 Bucket", 280, 100),
-      createTemplateNode("lambda-api", "lambda", "Web App Lambda API", 280, 300),
-      createTemplateNode("rds-db", "rds", "Aurora Serverless v2 RDS", 520, 300, { instanceType: "db.serverless" }),
+      n("cf-1", "cloudfront", "Frontend CDN", 50, 100),
+      n("s3-frontend", "s3", "Frontend Bucket", 300, 100),
+      n("alb-api", "load-balancer", "API Load Balancer", 50, 320),
+      n("lambda-api", "lambda", "API Function", 300, 320),
+      n("rds-db", "rds", "App Database", 560, 260, { instanceType: "db.t4g.micro" }),
+      n("s3-uploads", "s3", "Uploads Bucket", 560, 400),
     ],
-    edges: [
-      {
-        id: "e-cf-s3",
-        source: "cf-1",
-        target: "s3-frontend",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
-      {
-        id: "e-cf-lambda",
-        source: "cf-1",
-        target: "lambda-api",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
-      {
-        id: "e-lambda-rds",
-        source: "lambda-api",
-        target: "rds-db",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
-    ],
+    edges: [e("cf-1", "s3-frontend"), e("alb-api", "lambda-api"), e("lambda-api", "rds-db"), e("lambda-api", "s3-uploads")],
   },
   {
     id: "static-website",
     name: "Static Website (S3 + CloudFront)",
-    description: "Fast content delivery network architecture to serve a static frontend securely from an S3 bucket origin.",
-    nodes: [
-      createTemplateNode("cf-1", "cloudfront", "CloudFront CDN Distribution", 100, 200),
-      createTemplateNode("s3-web", "s3", "Static Web hosting S3 Bucket", 380, 200),
-    ],
-    edges: [
-      {
-        id: "e-cf-s3-static",
-        source: "cf-1",
-        target: "s3-web",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
-    ],
+    description: "Private S3 bucket served only through CloudFront with Origin Access Control.",
+    nodes: [n("cf-1", "cloudfront", "CloudFront CDN Distribution", 100, 200), n("s3-web", "s3", "Static Site Bucket", 380, 200)],
+    edges: [e("cf-1", "s3-web")],
   },
   {
     id: "microservices",
     name: "Microservices Stack",
-    description: "Load Balancer dispatching user requests to isolated EC2 microservice APIs querying a central Database cluster.",
+    description: "Internet-facing ALB in front of three EC2 services that share one RDS database.",
     nodes: [
-      createTemplateNode("alb-1", "load-balancer", "API Gateway ALB", 50, 220),
-      createTemplateNode("ec2-auth", "ec2", "Auth Service EC2", 280, 80, { instanceType: "t3.small" }),
-      createTemplateNode("ec2-catalog", "ec2", "Catalog Service EC2", 280, 220, { instanceType: "t3.small" }),
-      createTemplateNode("ec2-orders", "ec2", "Orders Service EC2", 280, 360, { instanceType: "t3.small" }),
-      createTemplateNode("rds-db", "rds", "Shared RDS DB", 520, 220, { instanceType: "db.t3.medium" }),
+      n("alb-1", "load-balancer", "Gateway ALB", 50, 220),
+      n("ec2-auth", "ec2", "Auth Service", 280, 80, { instanceType: "t3.micro" }),
+      n("ec2-catalog", "ec2", "Catalog Service", 280, 220, { instanceType: "t3.micro" }),
+      n("ec2-orders", "ec2", "Orders Service", 280, 360, { instanceType: "t3.micro" }),
+      n("rds-db", "rds", "Shared RDS DB", 520, 220, { instanceType: "db.t4g.micro" }),
     ],
     edges: [
-      {
-        id: "e-alb-auth",
-        source: "alb-1",
-        target: "ec2-auth",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
-      {
-        id: "e-alb-catalog",
-        source: "alb-1",
-        target: "ec2-catalog",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
-      {
-        id: "e-alb-orders",
-        source: "alb-1",
-        target: "ec2-orders",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
-      {
-        id: "e-auth-rds",
-        source: "ec2-auth",
-        target: "rds-db",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
-      {
-        id: "e-catalog-rds",
-        source: "ec2-catalog",
-        target: "rds-db",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
-      {
-        id: "e-orders-rds",
-        source: "ec2-orders",
-        target: "rds-db",
-        type: "smoothstep",
-        animated: true,
-        style: { stroke: "#ff9900", strokeWidth: 2 },
-      },
+      e("alb-1", "ec2-auth"),
+      e("alb-1", "ec2-catalog"),
+      e("alb-1", "ec2-orders"),
+      e("ec2-auth", "rds-db"),
+      e("ec2-catalog", "rds-db"),
+      e("ec2-orders", "rds-db"),
     ],
+  },
+  {
+    id: "scenario-insecure-ssh",
+    name: "Scenario 1: SSH Open to the Internet",
+    scenario: "1",
+    description:
+      "Deliberately insecure: a web server in a public subnet with SSH (22) open to 0.0.0.0/0. Open the Security tab to see the findings and their evidence.",
+    nodes: [
+      n("alb-1", "load-balancer", "Public ALB", 50, 200),
+      n("ec2-web", "ec2", "Web Server", 300, 200, {
+        instanceType: "t3.micro",
+        config: {
+          subnetTier: "public",
+          ingressRules: [{ protocol: "tcp", fromPort: 22, toPort: 22, cidr: "0.0.0.0/0", description: "SSH for admins" }],
+        },
+      }),
+      n("rds-db", "rds", "App Database", 560, 200, { instanceType: "db.t4g.micro" }),
+    ],
+    edges: [e("alb-1", "ec2-web"), e("ec2-web", "rds-db")],
   },
 ];

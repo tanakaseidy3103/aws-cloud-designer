@@ -1,0 +1,81 @@
+# CI: static checks only. No AWS credentials, no terraform plan/apply, no deployments.
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint, typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npx vitest run --project unit
+      - run: npm run build
+
+  terraform:
+    name: Terraform fmt + validate (offline, no credentials)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      REQUIRE_TERRAFORM: "1"
+      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.tf-plugin-cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+      - run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
+      - uses: actions/cache@v4
+        with:
+          path: .tf-plugin-cache
+          key: tf-plugins-${{ runner.os }}-aws-5
+      - run: npm ci
+      - run: npx vitest run --project terraform
+
+  security-scan:
+    name: Terraform security analyzer on fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Secure fixture must be clean (exit 0)
+        run: npm run scan:terraform -- tests/fixtures/terraform/secure --out secure-report.json
+      - name: Insecure fixture must produce findings (exit 1)
+        run: |
+          set +e
+          npm run scan:terraform -- tests/fixtures/terraform/insecure --out insecure-report.json
+          code=$?
+          set -e
+          test "$code" -eq 1 || { echo "expected exit 1, got $code"; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: terraform-security-reports
+          path: "*-report.json"

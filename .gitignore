@@ -40,3 +40,12 @@ next-env.d.ts
 # ide
 .idea
 .vscode
+
+# terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+/.tf-out/
