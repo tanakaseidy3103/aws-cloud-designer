@@ -2,6 +2,10 @@ import { findTerraform, runTerraformChecks, type PipelineResult } from "@/lib/ia
 
 export const terraform = await findTerraform();
 
+if (!terraform && process.env.REQUIRE_TERRAFORM === "1") {
+  // CI sets this so a missing binary fails the job instead of silently skipping.
+  throw new Error("[terraform tests] REQUIRE_TERRAFORM=1 but no terraform binary was found.");
+}
 if (!terraform) {
   console.warn(
     "[terraform tests] terraform binary not found (set TERRAFORM_BIN or add it to PATH) — tests are skipped."
